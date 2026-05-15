@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+// @ts-ignore
+import PDFDocument from 'pdfkit';
 
 export interface ReportData {
   order_number: string;
@@ -16,115 +18,233 @@ export interface ReportData {
   analyst_recommendations?: string;
 }
 
-function ratingColor(rating: string): string {
-  return ({ low: '#16a34a', medium: '#eab308', high: '#ea580c', critical: '#dc2626' } as any)[rating] || '#6b7280';
-}
-
-export function renderReportHTML(data: ReportData): string {
-  const date = new Date().toLocaleDateString('en-GB');
-  const rating = data.analyst_risk_rating || 'medium';
-  const score = data.ai_risk_score ?? 50;
-  const proc = data.procurement || [];
-  const news = data.news || [];
-  const totalProc = proc.reduce((sum, p) => sum + (parseFloat(p.contract_value_eur) || 0), 0);
-
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>Report ${data.order_number}</title>
-<style>
-  @page { size: A4; margin: 20mm 18mm; @bottom-left { content: "CONFIDENTIAL — Prepared exclusively for ${data.client_name} — ${date}"; font-size: 8pt; color: #666; } @bottom-right { content: counter(page); font-size: 8pt; } }
-  body { font-family: Georgia, serif; color: #1f2937; font-size: 11pt; line-height: 1.5; }
-  h1 { color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 8px; }
-  h2 { color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 28px; }
-  .cover { text-align: center; padding: 80px 0 40px; }
-  .cover h1 { border: 0; font-size: 28pt; }
-  .cover .subject { font-size: 24pt; color: #0f172a; margin: 30px 0; font-weight: bold; }
-  .badge { display: inline-block; padding: 8px 18px; border-radius: 6px; color: white; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; font-size: 10pt; }
-  th { background: #f1f5f9; }
-  .gauge { width: 100%; background: #e5e7eb; height: 12px; border-radius: 6px; overflow: hidden; }
-  .gauge .fill { height: 100%; background: ${ratingColor(rating)}; width: ${score}%; }
-  .flag { padding: 8px 12px; margin: 6px 0; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 10pt; }
-  .page-break { page-break-before: always; }
-  .footer-note { font-size: 8pt; color: #6b7280; margin-top: 30px; }
-</style></head><body>
-
-<div class="cover">
-  <div style="font-size: 14pt; color: #64748b; letter-spacing: 3px;">KOSOVAINTEL</div>
-  <h1>BUSINESS INTELLIGENCE REPORT</h1>
-  <div class="subject">${data.company?.name || data.order_number}</div>
-  <div style="margin: 30px 0;">
-    <span class="badge" style="background: ${ratingColor(rating)};">${rating} risk</span>
-  </div>
-  <div style="margin-top: 60px; color: #475569;">
-    <div>Order: <strong>${data.order_number}</strong></div>
-    <div>Date: ${date}</div>
-    <div>Prepared for: ${data.client_name}</div>
-  </div>
-  <div class="footer-note" style="margin-top: 80px;">CONFIDENTIAL — This report is prepared exclusively for the named recipient and is not transferable.</div>
-</div>
-
-<div class="page-break"></div>
-<h2>1. Executive Summary</h2>
-<div>Risk Score: <strong>${score} / 100</strong></div>
-<div class="gauge"><div class="fill"></div></div>
-<p>${data.ai_risk_narrative || data.analyst_summary || 'No executive summary available.'}</p>
-${(data.analyst_flags || []).map((f: any) => `<div class="flag"><strong>${f.flag || f}</strong>${f.detail ? ` — ${f.detail}` : ''}</div>`).join('')}
-
-<h2>2. Company Profile</h2>
-<table>
-  <tr><th>Registered Name</th><td>${data.company?.name || '—'}</td></tr>
-  <tr><th>Registration Number</th><td>${data.company?.registration_number || '—'}</td></tr>
-  <tr><th>Legal Form</th><td>${data.company?.legal_form || '—'}</td></tr>
-  <tr><th>Status</th><td><span class="badge" style="background: ${data.company?.status === 'active' ? '#16a34a' : '#dc2626'}; font-size: 9pt; padding: 3px 10px;">${data.company?.status || 'unknown'}</span></td></tr>
-  <tr><th>Registration Date</th><td>${data.company?.registration_date || '—'}</td></tr>
-  <tr><th>Municipality</th><td>${data.company?.municipality || '—'}</td></tr>
-  <tr><th>Address</th><td>${data.company?.address || '—'}</td></tr>
-  <tr><th>Primary Activity</th><td>${data.company?.primary_activity_description || '—'}</td></tr>
-  <tr><th>Share Capital</th><td>€ ${data.company?.share_capital_eur || '—'}</td></tr>
-</table>
-
-<h2>3. Ownership Structure</h2>
-${data.persons?.length ? `<table><tr><th>Name</th><th>Role</th><th>Ownership %</th></tr>${data.persons.map((p) => `<tr><td>${p.full_name}</td><td>${p.role || '—'}</td><td>${p.ownership_percent || '—'}</td></tr>`).join('')}</table>` : '<p>No ownership data available — flagged as a data gap.</p>'}
-
-<h2>4. Procurement History</h2>
-<p>Total contracts: <strong>${proc.length}</strong> &nbsp;|&nbsp; Total value: <strong>€ ${totalProc.toLocaleString()}</strong></p>
-${proc.length ? `<table><tr><th>Date</th><th>Authority</th><th>Title</th><th>Value (EUR)</th></tr>${proc.slice(0, 25).map((p) => `<tr><td>${p.award_date || '—'}</td><td>${p.contracting_authority || '—'}</td><td>${p.tender_title || '—'}</td><td>${(parseFloat(p.contract_value_eur) || 0).toLocaleString()}</td></tr>`).join('')}</table>` : '<p>No procurement history found in public records.</p>'}
-
-<h2>5. Media & News Screening</h2>
-${news.length ? news.map((n) => `<div style="margin: 10px 0; padding: 10px; background: #f8fafc;"><div style="font-weight: bold;">${n.headline}</div><div style="font-size: 9pt; color: #64748b;">${n.source_name} — sentiment: ${n.sentiment || 'unknown'}</div><div style="font-size: 10pt; margin-top: 4px;">${n.summary || ''}</div></div>`).join('') : '<p>No significant media presence found.</p>'}
-
-<h2>6. Analyst Assessment</h2>
-<p>${data.analyst_summary || 'No analyst summary provided.'}</p>
-<p><strong>Recommendations:</strong> ${data.analyst_recommendations || '—'}</p>
-
-<h2>7. Data Sources & Methodology</h2>
-<ul style="font-size: 10pt;">
-  <li>ARBK — Kosovo Business Registration Agency (https://arbk.rks-gov.net)</li>
-  <li>e-Prokurimi — Kosovo Public Procurement (https://e-prokurimi.rks-gov.net)</li>
-  <li>Kosovo Open Data Portal (https://opendata.rks-gov.net)</li>
-  <li>Kosovo media sources: Koha, Gazeta Express, Prishtina Insight, Zëri</li>
-</ul>
-<p class="footer-note">This report is based on publicly available data sources as of ${date}. Information is provided for due diligence purposes and should be verified independently before commercial action.</p>
-
-</body></html>`;
+function ratingLabel(rating: string): string {
+  return ({ low: 'LOW RISK', medium: 'MEDIUM RISK', high: 'HIGH RISK', critical: 'CRITICAL RISK' } as any)[rating] || 'UNKNOWN';
 }
 
 export async function generatePDF(data: ReportData, outputPath: string): Promise<string> {
-  const html = renderReportHTML(data);
   const dir = path.dirname(outputPath);
   fs.mkdirSync(dir, { recursive: true });
-  try {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.pdf({ path: outputPath, format: 'A4', printBackground: true });
-    await browser.close();
-  } catch (err) {
-    // Fallback: save HTML if puppeteer fails
-    fs.writeFileSync(outputPath.replace(/\.pdf$/, '.html'), html);
-    throw err;
-  }
-  return outputPath;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 55, info: { Title: `KosovaIntel Report ${data.order_number}`, Author: 'KosovaIntel' } });
+    const stream = fs.createWriteStream(outputPath);
+    doc.pipe(stream);
+
+    const rating = data.analyst_risk_rating || 'medium';
+    const score = data.ai_risk_score ?? 50;
+    const proc = data.procurement || [];
+    const news = data.news || [];
+    const date = new Date().toLocaleDateString('en-GB');
+    const totalProc = proc.reduce((sum: number, p: any) => sum + (parseFloat(p.contract_value_eur) || 0), 0);
+
+    const colors: Record<string, string> = { low: '#16a34a', medium: '#b45309', high: '#ea580c', critical: '#dc2626' };
+    const ratingColor = colors[rating] || '#6b7280';
+
+    const addPageFooter = () => {
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(7).fillColor('#9ca3af')
+          .text(`CONFIDENTIAL — Prepared exclusively for ${data.client_name} — ${date}`, 55, doc.page.height - 35, { align: 'left', width: 400 })
+          .text(`Page ${i + 1}`, 55, doc.page.height - 35, { align: 'right', width: doc.page.width - 110 });
+      }
+    };
+
+    // COVER PAGE
+    doc.rect(0, 0, doc.page.width, 200).fill('#0f172a');
+    doc.fillColor('white').fontSize(11).font('Helvetica').text('KOSOVAINTEL', 55, 80, { letterSpacing: 4 });
+    doc.fontSize(22).font('Helvetica-Bold').text('BUSINESS INTELLIGENCE REPORT', 55, 110);
+    doc.fillColor('#94a3b8').fontSize(10).font('Helvetica').text('Kosovo Due Diligence', 55, 145);
+
+    doc.fillColor('#0f172a').fontSize(20).font('Helvetica-Bold')
+      .text(data.company?.name || data.order_number, 55, 230);
+
+    doc.rect(55, 280, 120, 30).fill(ratingColor);
+    doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
+      .text(ratingLabel(rating), 55, 288, { width: 120, align: 'center' });
+
+    doc.fillColor('#475569').fontSize(10).font('Helvetica')
+      .text(`Order: ${data.order_number}`, 55, 330)
+      .text(`Date: ${date}`, 55, 345)
+      .text(`Prepared for: ${data.client_name}`, 55, 360);
+
+    doc.fillColor('#9ca3af').fontSize(8)
+      .text('CONFIDENTIAL — This report is prepared exclusively for the named recipient and is not transferable.', 55, 720, { width: 485 });
+
+    // SECTION 1 — EXECUTIVE SUMMARY
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('1. Executive Summary', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#374151').text(`Risk Score: ${score}/100`, 55, 95);
+    doc.rect(55, 115, 485, 10).fill('#e5e7eb');
+    doc.rect(55, 115, Math.round(485 * score / 100), 10).fill(ratingColor);
+
+    doc.fontSize(10).font('Helvetica').fillColor('#1f2937')
+      .text(data.ai_risk_narrative || data.analyst_summary || 'No executive summary available. Please generate AI narrative or write analyst summary.', 55, 140, { width: 485 });
+
+    if (data.analyst_flags && data.analyst_flags.length > 0) {
+      doc.moveDown();
+      doc.fontSize(11).font('Helvetica-Bold').text('Risk Flags:');
+      for (const f of data.analyst_flags as any[]) {
+        doc.rect(55, doc.y, 485, 1).fill('#f59e0b');
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#92400e').text(`⚠ ${f.flag || f}`, 65, doc.y);
+        if (f.detail) doc.fontSize(9).font('Helvetica').fillColor('#374151').text(f.detail, 75, doc.y, { width: 465 });
+        doc.moveDown(0.5);
+      }
+    }
+
+    // SECTION 2 — COMPANY PROFILE
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('2. Company Profile', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+
+    const companyFields = [
+      ['Registered Name', data.company?.name],
+      ['Registration Number', data.company?.registration_number],
+      ['Legal Form', data.company?.legal_form],
+      ['Status', data.company?.status?.toUpperCase()],
+      ['Registration Date', data.company?.registration_date],
+      ['Municipality', data.company?.municipality],
+      ['Address', data.company?.address],
+      ['Primary Activity', data.company?.primary_activity_description],
+      ['Share Capital', data.company?.share_capital_eur ? `€ ${parseFloat(data.company.share_capital_eur).toLocaleString()}` : null],
+    ];
+
+    let y = 95;
+    for (const [label, value] of companyFields) {
+      if (y > 700) { doc.addPage(); y = 55; }
+      doc.rect(55, y, 150, 22).fill('#f1f5f9');
+      doc.rect(205, y, 335, 22).fill('#ffffff').strokeColor('#e5e7eb').stroke();
+      doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold').text(String(label), 60, y + 7, { width: 140 });
+      doc.fillColor('#1f2937').fontSize(9).font('Helvetica').text(String(value || '—'), 210, y + 7, { width: 325 });
+      y += 23;
+    }
+
+    // SECTION 3 — OWNERSHIP
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('3. Ownership Structure', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+
+    if (!data.persons || data.persons.length === 0) {
+      doc.fontSize(10).font('Helvetica').fillColor('#6b7280').text('No ownership data found in public registry — this is flagged as a data gap.', 55, 95);
+    } else {
+      doc.rect(55, 95, 220, 20).fill('#f1f5f9');
+      doc.rect(275, 95, 150, 20).fill('#f1f5f9');
+      doc.rect(425, 95, 115, 20).fill('#f1f5f9');
+      doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold')
+        .text('Name', 60, 102).text('Role', 280, 102).text('Ownership %', 430, 102);
+      y = 115;
+      for (const p of data.persons) {
+        if (y > 700) { doc.addPage(); y = 55; }
+        doc.fillColor('#1f2937').fontSize(9).font('Helvetica')
+          .text(p.full_name || '—', 60, y + 4, { width: 210 })
+          .text(p.role || '—', 280, y + 4, { width: 140 })
+          .text(p.ownership_percent ? `${p.ownership_percent}%` : '—', 430, y + 4);
+        doc.moveTo(55, y + 20).lineTo(540, y + 20).strokeColor('#f3f4f6').stroke();
+        y += 21;
+      }
+    }
+
+    // SECTION 4 — PROCUREMENT
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('4. Procurement History', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+    doc.fontSize(10).font('Helvetica').fillColor('#374151')
+      .text(`Total contracts found: ${proc.length}   |   Total value: € ${totalProc.toLocaleString()}`, 55, 90);
+
+    if (proc.length === 0) {
+      doc.moveDown().fillColor('#6b7280').text('No government procurement contracts found in public records.');
+    } else {
+      doc.rect(55, 115, 80, 20).fill('#f1f5f9');
+      doc.rect(135, 115, 185, 20).fill('#f1f5f9');
+      doc.rect(320, 115, 140, 20).fill('#f1f5f9');
+      doc.rect(460, 115, 80, 20).fill('#f1f5f9');
+      doc.fillColor('#374151').fontSize(8).font('Helvetica-Bold')
+        .text('Date', 60, 123).text('Title', 140, 123).text('Authority', 325, 123).text('Value (EUR)', 465, 123);
+      y = 135;
+      for (const p of proc.slice(0, 30)) {
+        if (y > 720) { doc.addPage(); y = 55; }
+        doc.fillColor('#1f2937').fontSize(8).font('Helvetica')
+          .text(p.award_date || '—', 60, y, { width: 70 })
+          .text(p.tender_title || '—', 140, y, { width: 175 })
+          .text(p.contracting_authority || '—', 325, y, { width: 130 })
+          .text(parseFloat(p.contract_value_eur || 0).toLocaleString(), 465, y, { width: 75, align: 'right' });
+        doc.moveTo(55, y + 16).lineTo(540, y + 16).strokeColor('#f3f4f6').stroke();
+        y += 17;
+      }
+    }
+
+    // SECTION 5 — NEWS
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('5. Media & News Screening', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+
+    if (news.length === 0) {
+      doc.fontSize(10).font('Helvetica').fillColor('#6b7280').text('No significant media presence found.', 55, 95);
+    } else {
+      y = 95;
+      for (const n of news) {
+        if (y > 680) { doc.addPage(); y = 55; }
+        const sentColor = n.sentiment === 'positive' ? '#16a34a' : n.sentiment === 'negative' ? '#dc2626' : '#6b7280';
+        doc.rect(55, y, 485, 1).fill('#e5e7eb');
+        y += 6;
+        doc.fillColor('#1f2937').fontSize(10).font('Helvetica-Bold').text(n.headline || '', 55, y, { width: 400 });
+        doc.fillColor(sentColor).fontSize(8).font('Helvetica').text(n.sentiment || 'unknown', 470, y, { width: 70, align: 'right' });
+        y += 16;
+        doc.fillColor('#6b7280').fontSize(8).text(`${n.source_name} — ${n.published_at || ''}`, 55, y);
+        y += 12;
+        if (n.summary) {
+          doc.fillColor('#374151').fontSize(9).text(n.summary, 55, y, { width: 485 });
+          y += 24;
+        }
+        y += 8;
+      }
+    }
+
+    // SECTION 6 — ANALYST
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('6. Analyst Assessment', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+    doc.fontSize(10).font('Helvetica').fillColor('#1f2937')
+      .text(data.analyst_summary || 'No analyst summary provided.', 55, 95, { width: 485 });
+    if (data.analyst_recommendations) {
+      doc.moveDown().font('Helvetica-Bold').text('Recommendations:');
+      doc.font('Helvetica').text(data.analyst_recommendations, { width: 485 });
+    }
+
+    // SECTION 7 — SOURCES
+    doc.addPage();
+    doc.fillColor('#0f172a').fontSize(16).font('Helvetica-Bold').text('7. Data Sources & Methodology', 55, 55);
+    doc.moveTo(55, 78).lineTo(540, 78).strokeColor('#cbd5e1').stroke();
+    const sources = [
+      'ARBK — Kosovo Business Registration Agency: https://arbk.rks-gov.net',
+      'e-Prokurimi — Kosovo Public Procurement: https://e-prokurimi.rks-gov.net',
+      'Open Procurement Kosovo: https://www.prokurimihapur.org',
+      'Kosovo Open Data Portal: https://opendata.rks-gov.net',
+      'Koha: https://www.koha.net',
+      'Gazeta Express: https://www.gazetaexpress.com',
+      'Prishtina Insight: https://prishtinainsight.com',
+      'Zëri: https://zeri.info',
+    ];
+    y = 95;
+    for (const s of sources) {
+      doc.fontSize(9).font('Helvetica').fillColor('#374151').text(`• ${s}`, 55, y, { width: 485 });
+      y += 18;
+    }
+    doc.moveDown(2).fontSize(8).fillColor('#9ca3af')
+      .text(`Report generated: ${date}. This report is based on publicly available data and should be verified independently before commercial decisions.`, 55, y + 20, { width: 485 });
+
+    addPageFooter();
+    doc.end();
+
+    stream.on('finish', () => resolve(outputPath));
+    stream.on('error', reject);
+  });
+}
+
+export function renderReportHTML(data: ReportData): string {
+  return `<html><body><h1>${data.order_number}</h1><p>Use generatePDF for proper output.</p></body></html>`;
 }
