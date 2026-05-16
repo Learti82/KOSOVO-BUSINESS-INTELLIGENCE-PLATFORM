@@ -210,4 +210,54 @@ router.get('/stats', async (_req, res) => {
   });
 });
 
+// ============ CSV EXPORTS ============
+function toCSV(rows: any[]): string {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (v: any) => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  };
+  return [headers.join(','), ...rows.map((r) => headers.map((h) => escape(r[h])).join(','))].join('\n');
+}
+
+router.get('/export/companies.csv', async (_req, res) => {
+  const r = await query<any>(
+    `SELECT name, registration_number, legal_form, status, municipality,
+            registration_date, primary_activity_description, share_capital_eur
+     FROM companies ORDER BY name`
+  );
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=kosovaintel-companies.csv');
+  res.send(toCSV(r.rows));
+});
+
+router.get('/export/procurement.csv', async (_req, res) => {
+  const r = await query<any>(
+    `SELECT c.name AS company, p.tender_title, p.contracting_authority,
+            p.contract_value_eur, p.award_date, p.cpv_code
+     FROM procurement_records p
+     LEFT JOIN companies c ON c.id = p.company_id
+     ORDER BY p.award_date DESC`
+  );
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=kosovaintel-procurement.csv');
+  res.send(toCSV(r.rows));
+});
+
+router.get('/export/orders.csv', async (_req, res) => {
+  const r = await query<any>(
+    `SELECT o.order_number, o.target_company_name, o.report_type, o.urgency,
+            o.price_eur, o.paid, o.status, u.email AS client_email,
+            o.created_at, o.completed_at
+     FROM report_orders o
+     LEFT JOIN users u ON u.id = o.client_id
+     ORDER BY o.created_at DESC`
+  );
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=kosovaintel-orders.csv');
+  res.send(toCSV(r.rows));
+});
+
 export default router;

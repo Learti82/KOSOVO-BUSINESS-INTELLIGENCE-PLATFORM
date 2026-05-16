@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { api } from '../lib/api';
 import { useT } from '../lib/i18n';
+
+const SENTIMENT_COLORS: Record<string, string> = { positive: '#16a34a', negative: '#dc2626', neutral: '#94a3b8' };
 
 export default function CompanyDetail() {
   const { t } = useT();
   const { id } = useParams();
   const [data, setData] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (id) api<any>(`/history/company/${id}`).then((r) => setHistory(r.history)).catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     api<any>(`/companies/${id}/public`).then(setData).catch(() => {});
@@ -63,6 +71,70 @@ export default function CompanyDetail() {
           </div>
         }
       </section>
+
+      {procurement.length > 0 && (() => {
+        const byYear: Record<string, number> = {};
+        for (const p of procurement) {
+          const y = (p.award_date || '').toString().slice(0, 4) || 'N/A';
+          byYear[y] = (byYear[y] || 0) + Number(p.contract_value_eur || 0);
+        }
+        const chartData = Object.entries(byYear).sort(([a], [b]) => a.localeCompare(b)).map(([year, value]) => ({ year, value: Math.round(value) }));
+        return (
+          <section className="bg-white border rounded p-6 mb-6">
+            <h2 className="font-bold mb-3">Procurement by year</h2>
+            <div style={{ width: '100%', height: 240 }}>
+              <ResponsiveContainer>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v: any) => `€${Number(v).toLocaleString()}`} />
+                  <Bar dataKey="value" fill="#0ea5e9" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        );
+      })()}
+
+      {news.length > 0 && (() => {
+        const counts: Record<string, number> = {};
+        for (const n of news) counts[n.sentiment || 'unknown'] = (counts[n.sentiment || 'unknown'] || 0) + 1;
+        const pieData = Object.entries(counts).map(([name, value]) => ({ name, value }));
+        return (
+          <section className="bg-white border rounded p-6 mb-6">
+            <h2 className="font-bold mb-3">News sentiment</h2>
+            <div style={{ width: '100%', height: 220 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={75} label>
+                    {pieData.map((entry) => <Cell key={entry.name} fill={SENTIMENT_COLORS[entry.name] || '#cbd5e1'} />)}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        );
+      })()}
+
+      {history.length > 1 && (
+        <section className="bg-white border rounded p-6 mb-6">
+          <h2 className="font-bold mb-3">Risk score history</h2>
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <LineChart data={history.map((h) => ({ date: h.created_at?.slice(0, 10), score: h.risk_score }))}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Line type="monotone" dataKey="score" stroke="#9333ea" strokeWidth={2} dot />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
 
       <section className="bg-white border rounded p-6 mb-6">
         <h2 className="font-bold mb-3">{t('company.procurement')} ({procurement.length})</h2>

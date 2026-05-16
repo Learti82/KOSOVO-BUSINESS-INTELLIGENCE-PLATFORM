@@ -52,6 +52,42 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
   const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
   const outputPath = path.resolve(reportsPath, `${order.order_number}-${lang}.pdf`);
 
+  const tier = (order.report_type || 'comprehensive') as 'basic' | 'standard' | 'comprehensive';
+
+  // Comprehensive tier: enrich with sanctions, court, peer, history
+  let sanctions_results: any, court_results: any, peer_stats: any, history: any;
+  if (tier === 'comprehensive' && company) {
+    try {
+      const { checkPersonsAgainstSanctions } = await import('../services/sanctions.service');
+      const { searchCourtCases } = await import('../services/court.service');
+      const { getPeerBenchmark } = await import('../services/peer.service');
+      [sanctions_results, court_results, peer_stats] = await Promise.all([
+        checkPersonsAgainstSanctions(persons.map((p: any) => ({ full_name: p.full_name }))),
+        searchCourtCases(company.name),
+        getPeerBenchmark(company.id),
+      ]);
+      const histResult = await query<any>(
+        `SELECT risk_score, risk_rating, created_at FROM risk_score_history
+         WHERE company_id = $1 ORDER BY created_at ASC LIMIT 12`,
+        [company.id]
+      );
+      history = histResult.rows;
+    } catch (e) {
+      console.error('Comprehensive enrichment failed:', e);
+    }
+  }
+
+  // Record risk score history
+  if (company && assessment) {
+    try {
+      await query(
+        `INSERT INTO risk_score_history (company_id, risk_score, risk_rating, flags_count, source)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [company.id, assessment.risk_score, assessment.risk_rating, (assessment.risk_flags || []).length, 'report_build']
+      );
+    } catch (e) { console.error('History insert failed:', e); }
+  }
+
   // For non-English PDFs, use the freshly computed assessment in that language
   const narrativeForLang = (lang === 'sq' && assessment) ? assessment.executive_summary : report?.ai_risk_narrative;
   const flagsForLang = (lang === 'sq' && assessment) ? assessment.risk_flags : report?.analyst_flags;
@@ -68,8 +104,8 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
     analyst_flags: flagsForLang,
     data_gaps: assessment?.data_gaps,
     analyst_recommendations: recForLang,
-    lang,
-    tier: order.report_type as 'basic' | 'standard' | 'comprehensive',
+    sanctions_results, court_results, peer_stats, history,
+    lang, tier,
   }, outputPath);
 
   // Only update pdf_path with the default English version (for backward compat)
@@ -108,6 +144,25 @@ router.get('/samples/:tier', async (req, res) => {
     const { generateRiskAssessment } = await import('../services/ai.service');
     const assessment = await generateRiskAssessment({ company, persons, procurement, news }, lang);
 
+    // For Comprehensive: fetch sanctions, court, peer benchmark
+    let sanctions_results: any = undefined;
+    let court_results: any = undefined;
+    let peer_stats: any = undefined;
+    if (tier === 'comprehensive') {
+      try {
+        const { checkPersonsAgainstSanctions } = await import('../services/sanctions.service');
+        const { searchCourtCases } = await import('../services/court.service');
+        const { getPeerBenchmark } = await import('../services/peer.service');
+        [sanctions_results, court_results, peer_stats] = await Promise.all([
+          checkPersonsAgainstSanctions(persons.map((p: any) => ({ full_name: p.full_name }))),
+          searchCourtCases(company.name),
+          getPeerBenchmark(company.id),
+        ]);
+      } catch (e) {
+        console.error('Comprehensive enrichment failed:', e);
+      }
+    }
+
     const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
     const outputPath = path.resolve(reportsPath, `SAMPLE-${tier}-${lang}.pdf`);
 
@@ -126,6 +181,7 @@ router.get('/samples/:tier', async (req, res) => {
       data_gaps: assessment.data_gaps,
       analyst_summary: analystSummary,
       analyst_recommendations: assessment.recommendations,
+      sanctions_results, court_results, peer_stats,
       lang, tier, is_sample: true,
     }, outputPath);
 

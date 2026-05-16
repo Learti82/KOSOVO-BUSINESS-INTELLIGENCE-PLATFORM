@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import ClientDashboard from './pages/ClientDashboard';
 import CompaniesBrowse from './pages/Companies';
 import CompanyDetail from './pages/CompanyDetail';
+import BulkOrder from './pages/BulkOrder';
 import AdminLogin from './pages/admin/AdminLogin';
 import OrderQueue from './pages/admin/OrderQueue';
 import OrderWorkspace from './pages/admin/OrderWorkspace';
@@ -32,6 +33,7 @@ function Header() {
           {user ? (
             <>
               {user.role === 'client' && <Link to="/dashboard">{t('nav.dashboard')}</Link>}
+              {user.role === 'client' && <Link to="/bulk" className="hover:text-amber-400">Bulk</Link>}
               {(user.role === 'analyst' || user.role === 'admin') && <Link to="/admin/orders">{t('nav.admin')}</Link>}
               <button onClick={logout} className="text-slate-300 hover:text-white">{t('nav.logout')}</button>
             </>
@@ -65,6 +67,7 @@ export default function App() {
           <Route path="/companies" element={<CompaniesBrowse />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />
           <Route path="/order" element={<Order />} />
+          <Route path="/bulk" element={<BulkOrder />} />
           <Route path="/sample-report" element={<SampleReport />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

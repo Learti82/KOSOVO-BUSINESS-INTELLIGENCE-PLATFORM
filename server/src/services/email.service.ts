@@ -1,21 +1,44 @@
+import axios from 'axios';
 import nodemailer from 'nodemailer';
 
-let transporter: nodemailer.Transporter | null = null;
+let smtpTransporter: nodemailer.Transporter | null = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
+function getSMTPTransporter() {
+  if (smtpTransporter) return smtpTransporter;
   if (!process.env.SMTP_HOST) return null;
-  transporter = nodemailer.createTransport({
+  smtpTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false,
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
-  return transporter;
+  return smtpTransporter;
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const t = getTransporter();
+  // Prefer Resend if API key set (reliable transactional delivery)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      await axios.post(
+        'https://api.resend.com/emails',
+        {
+          from: process.env.EMAIL_FROM || 'KosovaIntel <onboarding@resend.dev>',
+          to: [to],
+          subject,
+          html,
+        },
+        {
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+          timeout: 10000,
+        }
+      );
+      return;
+    } catch (err) {
+      console.error('Resend send failed, falling back to SMTP:', (err as Error).message);
+    }
+  }
+
+  const t = getSMTPTransporter();
   if (!t) {
     console.log(`[EMAIL MOCK] To: ${to} | Subject: ${subject}`);
     return;

@@ -11,6 +11,18 @@ export default function ClientDashboard() {
     api<any>('/orders/client/orders').then((r) => setOrders(r.orders)).catch(() => {});
   }, []);
 
+  const uploadDoc = async (orderId: number, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch(`/api/uploads/orders/${orderId}/document`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: fd,
+    });
+    if (!r.ok) { const e = await r.json(); alert(e.error || 'Upload failed'); return; }
+    alert('Document uploaded ✓');
+  };
+
   const download = (id: number, num: string) => {
     fetch(`/api/client/orders/${id}/report?lang=${pdfLang}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
@@ -82,6 +94,11 @@ export default function ClientDashboard() {
                   {t('dashboard.download')} ({pdfLang.toUpperCase()})
                 </button>
               )}
+              <label className="text-xs text-slate-600 cursor-pointer">
+                📎 Attach
+                <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  onChange={(e) => e.target.files?.[0] && uploadDoc(o.id, e.target.files[0])} />
+              </label>
             </div>
           </div>
         ))}
