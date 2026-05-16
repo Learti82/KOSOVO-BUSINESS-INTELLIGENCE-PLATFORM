@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 export default function CompanyDetail() {
+  const { t } = useT();
   const { id } = useParams();
   const [data, setData] = useState<any>(null);
 
@@ -16,7 +18,7 @@ export default function CompanyDetail() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-6">
-      <Link to="/companies" className="text-amber-600 text-sm">← All companies</Link>
+      <Link to="/companies" className="text-amber-600 text-sm">← {t('company.back')}</Link>
 
       <div className="mt-3 mb-6">
         <div className="flex justify-between items-start">
@@ -32,24 +34,24 @@ export default function CompanyDetail() {
 
       <div className="grid md:grid-cols-3 gap-4 mb-8">
         <div className="bg-white border rounded p-4">
-          <div className="text-xs text-slate-500 uppercase">Registration</div>
+          <div className="text-xs text-slate-500 uppercase">{t('company.registration')}</div>
           <div className="font-bold mt-1">{company.registration_number || '—'}</div>
           <div className="text-sm text-slate-600">{company.registration_date?.split('T')[0]}</div>
         </div>
         <div className="bg-white border rounded p-4">
-          <div className="text-xs text-slate-500 uppercase">Location</div>
+          <div className="text-xs text-slate-500 uppercase">{t('company.location')}</div>
           <div className="font-bold mt-1">{company.municipality}</div>
           <div className="text-sm text-slate-600">{company.address}</div>
         </div>
         <div className="bg-white border rounded p-4">
-          <div className="text-xs text-slate-500 uppercase">Capital</div>
+          <div className="text-xs text-slate-500 uppercase">{t('company.capital')}</div>
           <div className="font-bold mt-1">€ {Number(company.share_capital_eur || 0).toLocaleString()}</div>
           <div className="text-sm text-slate-600">{company.legal_form}</div>
         </div>
       </div>
 
       <section className="bg-white border rounded p-6 mb-6">
-        <h2 className="font-bold mb-3">Owners & Authorized Persons ({persons.length})</h2>
+        <h2 className="font-bold mb-3">{t('company.owners')} ({persons.length})</h2>
         {persons.length === 0 ? <p className="text-sm text-slate-500">No data.</p> :
           <div className="space-y-2">
             {persons.map((p: any, i: number) => (
@@ -63,9 +65,9 @@ export default function CompanyDetail() {
       </section>
 
       <section className="bg-white border rounded p-6 mb-6">
-        <h2 className="font-bold mb-3">Government Procurement ({procurement.length})</h2>
-        <p className="text-sm text-slate-600 mb-3">Total value: <strong>€ {totalProc.toLocaleString()}</strong></p>
-        {procurement.length === 0 ? <p className="text-sm text-slate-500">No procurement records.</p> :
+        <h2 className="font-bold mb-3">{t('company.procurement')} ({procurement.length})</h2>
+        <p className="text-sm text-slate-600 mb-3">{t('company.procurement.total')}: <strong>€ {totalProc.toLocaleString()}</strong></p>
+        {procurement.length === 0 ? <p className="text-sm text-slate-500">{t('company.procurement.none')}</p> :
           <div className="space-y-2">
             {procurement.map((p: any, i: number) => (
               <div key={i} className="text-sm py-2 border-b last:border-0">
@@ -81,8 +83,8 @@ export default function CompanyDetail() {
       </section>
 
       <section className="bg-white border rounded p-6 mb-6">
-        <h2 className="font-bold mb-3">Media & News ({news.length})</h2>
-        {news.length === 0 ? <p className="text-sm text-slate-500">No mentions.</p> :
+        <h2 className="font-bold mb-3">{t('company.news')} ({news.length})</h2>
+        {news.length === 0 ? <p className="text-sm text-slate-500">{t('company.news.none')}</p> :
           <div className="space-y-3">
             {news.map((n: any, i: number) => (
               <div key={i} className="border-b last:border-0 pb-2">
@@ -102,18 +104,16 @@ export default function CompanyDetail() {
       </section>
 
       <div className="bg-amber-50 border-2 border-amber-300 rounded p-6 text-center">
-        <h3 className="font-bold text-lg mb-2">Want a full intelligence report on this company?</h3>
-        <p className="text-sm text-slate-700 mb-3">
-          Get a professional PDF with AI-generated risk analysis, executive summary, full procurement & ownership breakdown.
-        </p>
+        <h3 className="font-bold text-lg mb-2">{t('company.want_report')}</h3>
+        <p className="text-sm text-slate-700 mb-3">{t('company.want_report.desc')}</p>
         <Link to={`/order?company=${company.id}`} className="inline-block bg-amber-500 text-slate-900 font-bold px-6 py-2 rounded">
-          Order Report →
+          {t('company.order_report')} →
         </Link>
       </div>
 
       {company.source_url && (
         <p className="text-xs text-slate-500 mt-6 text-center">
-          Verify this data at the official source: <a href={company.source_url} target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">ARBK Registry</a>
+          {t('company.verify')} <a href={company.source_url} target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">ARBK</a>
         </p>
       )}
     </div>

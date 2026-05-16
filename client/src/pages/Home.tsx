@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useT } from '../lib/i18n';
 
 const tiers = [
   { id: 'basic', name: 'Basic', price: 299, desc: 'Registration check, ownership, status', features: ['ARBK registration data', 'Current status', 'Owners/directors', '48-hour delivery'] },
@@ -15,21 +16,19 @@ const useCases = [
 ];
 
 export default function Home() {
+  const { t } = useT();
   return (
     <div>
       <section className="bg-gradient-to-br from-slate-900 to-slate-700 text-white py-24">
         <div className="max-w-6xl mx-auto px-6 text-center">
-          <h1 className="text-5xl font-bold mb-6">Know who you're doing business with in Kosovo.</h1>
-          <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
-            Professional due diligence reports on any Kosovo company in 48 hours, built from public records,
-            procurement data, and media analysis.
-          </p>
+          <h1 className="text-5xl font-bold mb-6">{t('home.hero.title')}</h1>
+          <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">{t('home.hero.subtitle')}</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link to="/companies" className="inline-block bg-white text-slate-900 px-8 py-3 rounded font-bold text-lg">
-              Browse 45+ Companies
+              {t('home.browse')}
             </Link>
             <Link to="/order" className="inline-block bg-amber-500 text-slate-900 px-8 py-3 rounded font-bold text-lg hover:bg-amber-400">
-              Order a Report
+              {t('home.order')}
             </Link>
           </div>
         </div>
@@ -37,19 +36,19 @@ export default function Home() {
 
       <section className="bg-amber-50 border-y border-amber-200 py-10 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-3">Why pay for this?</h2>
+          <h2 className="text-2xl font-bold mb-3">{t('home.value.title')}</h2>
           <div className="grid md:grid-cols-3 gap-6 text-sm text-left mt-6">
             <div>
-              <div className="font-bold mb-1">⏱ Save analyst hours</div>
-              <p className="text-slate-700">Researching a single Kosovo company across ARBK, e-Prokurimi, news archives, and court records takes 6–10 hours of skilled analyst time. We've done it.</p>
+              <div className="font-bold mb-1">⏱ {t('home.value.hours')}</div>
+              <p className="text-slate-700">{t('home.value.hours.desc')}</p>
             </div>
             <div>
-              <div className="font-bold mb-1">🔗 Verified at source</div>
-              <p className="text-slate-700">Every report links back to the official ARBK URL so the recipient can verify each fact at the government source.</p>
+              <div className="font-bold mb-1">🔗 {t('home.value.verified')}</div>
+              <p className="text-slate-700">{t('home.value.verified.desc')}</p>
             </div>
             <div>
-              <div className="font-bold mb-1">🤖 AI risk analysis</div>
-              <p className="text-slate-700">Composite risk score (0–100) with executive narrative explaining flags, gaps, and recommendations.</p>
+              <div className="font-bold mb-1">🤖 {t('home.value.ai')}</div>
+              <p className="text-slate-700">{t('home.value.ai.desc')}</p>
             </div>
           </div>
         </div>

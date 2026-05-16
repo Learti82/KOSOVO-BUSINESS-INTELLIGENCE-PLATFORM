@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useT } from '../lib/i18n';
 
 interface Company {
   id: number;
@@ -15,6 +16,7 @@ interface Company {
 }
 
 export default function Companies() {
+  const { t } = useT();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -32,21 +34,21 @@ export default function Companies() {
   return (
     <div className="max-w-6xl mx-auto py-8 px-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Kosovo Companies Database</h1>
-        <p className="text-slate-600 mt-2">Browse {companies.length} indexed Kosovo companies. Click any company to view its full intelligence profile.</p>
+        <h1 className="text-3xl font-bold">{t('companies.title')}</h1>
+        <p className="text-slate-600 mt-2">{t('companies.subtitle')} ({companies.length})</p>
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         <input
           value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name..."
+          placeholder={t('companies.search')}
           className="flex-1 border rounded px-4 py-2 min-w-[200px]"
         />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border rounded px-3 py-2">
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="deregistered">Deregistered</option>
+          <option value="all">{t('companies.all_statuses')}</option>
+          <option value="active">{t('companies.status.active')}</option>
+          <option value="suspended">{t('companies.status.suspended')}</option>
+          <option value="deregistered">{t('companies.status.deregistered')}</option>
         </select>
       </div>
 

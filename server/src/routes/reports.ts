@@ -8,7 +8,7 @@ import { generateRiskAssessment } from '../services/ai.service';
 
 const router = Router();
 
-async function buildAndSavePDF(orderId: number): Promise<string> {
+async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promise<string> {
   const order = (await query<any>(
     `SELECT o.*, u.full_name AS client_name, u.company_name AS client_company
      FROM report_orders o LEFT JOIN users u ON o.client_id = u.id WHERE o.id = $1`,
@@ -46,7 +46,7 @@ async function buildAndSavePDF(orderId: number): Promise<string> {
   }
 
   const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
-  const outputPath = path.resolve(reportsPath, `${order.order_number}.pdf`);
+  const outputPath = path.resolve(reportsPath, `${order.order_number}-${lang}.pdf`);
 
   await generatePDF({
     order_number: order.order_number,
@@ -58,9 +58,13 @@ async function buildAndSavePDF(orderId: number): Promise<string> {
     analyst_risk_rating: report?.analyst_risk_rating,
     analyst_flags: report?.analyst_flags,
     analyst_recommendations: report?.analyst_recommendations,
+    lang,
   }, outputPath);
 
-  await query('UPDATE reports SET pdf_path = $1 WHERE order_id = $2', [outputPath, orderId]);
+  // Only update pdf_path with the default English version (for backward compat)
+  if (lang === 'en') {
+    await query('UPDATE reports SET pdf_path = $1 WHERE order_id = $2', [outputPath, orderId]);
+  }
   return outputPath;
 }
 
@@ -68,9 +72,9 @@ export { buildAndSavePDF };
 
 router.get('/client/orders/:id/report', authRequired, requireRole('client'), async (req: AuthRequest, res) => {
   try {
+    const lang: 'en' | 'sq' = req.query.lang === 'sq' ? 'sq' : 'en';
     const result = await query<any>(
-      `SELECT r.pdf_path, o.order_number, o.id AS order_id, o.status FROM report_orders o
-       LEFT JOIN reports r ON r.order_id = o.id
+      `SELECT o.order_number, o.id AS order_id, o.status FROM report_orders o
        WHERE o.id = $1 AND o.client_id = $2`,
       [req.params.id, req.user!.id]
     );
@@ -80,13 +84,13 @@ router.get('/client/orders/:id/report', authRequired, requireRole('client'), asy
       return res.status(400).json({ error: 'Report not yet completed' });
     }
 
-    let pdfPath = row.pdf_path;
-    if (!pdfPath || !fs.existsSync(pdfPath)) {
-      // Auto-generate on demand
-      console.log(`Generating PDF for order ${row.order_number}...`);
-      pdfPath = await buildAndSavePDF(row.order_id);
+    const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
+    let pdfPath = path.resolve(reportsPath, `${row.order_number}-${lang}.pdf`);
+    if (!fs.existsSync(pdfPath)) {
+      console.log(`Generating ${lang.toUpperCase()} PDF for order ${row.order_number}...`);
+      pdfPath = await buildAndSavePDF(row.order_id, lang);
     }
-    res.download(pdfPath, `KosovaIntel-${row.order_number}.pdf`);
+    res.download(pdfPath, `KosovaIntel-${row.order_number}-${lang}.pdf`);
   } catch (err: any) {
     console.error('PDF download failed:', err);
     res.status(500).json({ error: err.message });

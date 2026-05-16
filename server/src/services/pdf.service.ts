@@ -16,7 +16,111 @@ export interface ReportData {
   analyst_risk_rating?: string;
   analyst_flags?: any[];
   analyst_recommendations?: string;
+  lang?: 'en' | 'sq';
 }
+
+const LABELS = {
+  en: {
+    report_title: 'BUSINESS INTELLIGENCE',
+    report_subtitle: 'REPORT',
+    tagline: 'Kosovo Due Diligence',
+    risk: 'RISK',
+    score: 'Score',
+    order_number: 'Order Number',
+    date_issued: 'Date Issued',
+    prepared_for: 'Prepared for',
+    confidential: 'CONFIDENTIAL — This report has been prepared exclusively for',
+    not_transferable: 'and is not transferable. Information contained herein is based on publicly available data sources and analyst review as of the date of issue.',
+    s1: '1. Executive Summary',
+    s2: '2. Company Profile',
+    s3: '3. Ownership Structure',
+    s4: '4. Procurement History',
+    s5: '5. Media & News Screening',
+    s6: '6. Analyst Assessment',
+    s7: '7. Data Sources & Methodology',
+    risk_score: 'Risk Score',
+    risk_flags: 'Risk Flags',
+    name: 'Registered Name',
+    reg_num: 'Registration Number',
+    legal_form: 'Legal Form',
+    status: 'Status',
+    reg_date: 'Registration Date',
+    municipality: 'Municipality',
+    address: 'Address',
+    activity: 'Primary Activity',
+    capital: 'Share Capital',
+    source_url: 'Source URL',
+    no_ownership: 'No ownership data found in public registry. This is flagged as a data gap.',
+    col_name: 'Name',
+    col_role: 'Role',
+    col_ownership: 'Ownership %',
+    total_contracts: 'Total contracts',
+    total_value: 'Total value',
+    no_procurement: 'No government procurement contracts found in public records.',
+    col_date: 'Date',
+    col_title: 'Title',
+    col_authority: 'Authority',
+    col_value: 'Value (EUR)',
+    no_media: 'No significant media presence found.',
+    no_analyst: 'No analyst summary provided.',
+    recommendations: 'Recommendations',
+    footer_note: 'Data presented herein is sourced from publicly available registries and media outlets. Recipients should independently verify any material fact before commercial action. KosovaIntel does not warrant completeness of underlying government data.',
+    confidential_footer: 'CONFIDENTIAL — Prepared exclusively for',
+    page: 'Page',
+    page_of: 'of',
+    no_narrative: 'No narrative generated yet.',
+  },
+  sq: {
+    report_title: 'INTELIGJENCA AFARISTE',
+    report_subtitle: 'RAPORT',
+    tagline: 'Vlerësim i Kujdesshëm i Kosovës',
+    risk: 'RREZIK',
+    score: 'Pikët',
+    order_number: 'Numri i Porosisë',
+    date_issued: 'Data e Lëshimit',
+    prepared_for: 'Përgatitur për',
+    confidential: 'KONFIDENCIALE — Ky raport është përgatitur ekskluzivisht për',
+    not_transferable: 'dhe nuk është i transferueshëm. Informatat e përmbajtura këtu bazohen në burime publike të të dhënave dhe rishikim nga analisti deri në datën e lëshimit.',
+    s1: '1. Përmbledhja Ekzekutive',
+    s2: '2. Profili i Kompanisë',
+    s3: '3. Struktura e Pronësisë',
+    s4: '4. Historia e Prokurimeve',
+    s5: '5. Shqyrtimi i Medias & Lajmeve',
+    s6: '6. Vlerësimi i Analistit',
+    s7: '7. Burimet e të Dhënave & Metodologjia',
+    risk_score: 'Pikët e Rrezikut',
+    risk_flags: 'Shqetësimet e Identifikuara',
+    name: 'Emri i Regjistruar',
+    reg_num: 'Numri i Regjistrimit',
+    legal_form: 'Forma Ligjore',
+    status: 'Statusi',
+    reg_date: 'Data e Regjistrimit',
+    municipality: 'Komuna',
+    address: 'Adresa',
+    activity: 'Veprimtaria Kryesore',
+    capital: 'Kapitali Themelor',
+    source_url: 'URL e Burimit',
+    no_ownership: 'Nuk u gjetën të dhëna për pronësinë në regjistrin publik. Kjo është një boshllëk i të dhënave.',
+    col_name: 'Emri',
+    col_role: 'Roli',
+    col_ownership: 'Pronësia %',
+    total_contracts: 'Gjithsej kontrata',
+    total_value: 'Vlera totale',
+    no_procurement: 'Nuk u gjetën kontrata të prokurimit publik në regjistrat publikë.',
+    col_date: 'Data',
+    col_title: 'Titulli',
+    col_authority: 'Autoriteti',
+    col_value: 'Vlera (EUR)',
+    no_media: 'Nuk u gjet prani e konsiderueshme në media.',
+    no_analyst: 'Pa përmbledhje nga analisti.',
+    recommendations: 'Rekomandime',
+    footer_note: 'Të dhënat e paraqitura këtu janë marrë nga regjistrat publikë dhe burimet mediatike. Marrësit duhet të verifikojnë në mënyrë të pavarur çdo fakt material para ndërmarrjes së veprimeve komerciale. KosovaIntel nuk garanton plotësinë e të dhënave qeveritare.',
+    confidential_footer: 'KONFIDENCIALE — Përgatitur ekskluzivisht për',
+    page: 'Faqe',
+    page_of: 'nga',
+    no_narrative: 'Ende nuk është gjeneruar përmbledhja.',
+  },
+};
 
 const RATING_COLORS: Record<string, string> = {
   low: '#16a34a',
@@ -49,7 +153,9 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       const news = data.news || [];
       const persons = data.persons || [];
       const c = data.company || {};
-      const date = new Date().toLocaleDateString('en-GB');
+      const lang: 'en' | 'sq' = data.lang === 'sq' ? 'sq' : 'en';
+      const L = LABELS[lang];
+      const date = new Date().toLocaleDateString(lang === 'sq' ? 'sq-AL' : 'en-GB');
       const ratingColor = RATING_COLORS[rating] || '#6b7280';
       const totalProc = proc.reduce((sum: number, p: any) => sum + (parseFloat(p.contract_value_eur) || 0), 0);
 
@@ -60,11 +166,11 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         .text('KOSOVAINTEL', 50, 70, { characterSpacing: 4 });
       doc
         .fillColor('#ffffff').fontSize(24).font('Helvetica-Bold')
-        .text('BUSINESS INTELLIGENCE', 50, 100)
-        .text('REPORT', 50, 130);
+        .text(L.report_title, 50, 100)
+        .text(L.report_subtitle, 50, 130);
       doc
         .fillColor('#cbd5e1').fontSize(10).font('Helvetica')
-        .text('Kosovo Due Diligence', 50, 175);
+        .text(L.tagline, 50, 175);
 
       doc
         .fillColor('#0f172a').fontSize(20).font('Helvetica-Bold')
@@ -75,33 +181,30 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       doc.rect(50, badgeY, 160, 36).fill(ratingColor);
       doc
         .fillColor('#ffffff').fontSize(11).font('Helvetica-Bold')
-        .text(`${rating.toUpperCase()} RISK`, 50, badgeY + 12, { width: 160, align: 'center' });
+        .text(`${rating.toUpperCase()} ${L.risk}`, 50, badgeY + 12, { width: 160, align: 'center' });
       doc
         .fillColor('#374151').fontSize(11).font('Helvetica')
-        .text(`Score: ${score}/100`, 220, badgeY + 12);
+        .text(`${L.score}: ${score}/100`, 220, badgeY + 12);
 
-      // Order details
       doc
         .fillColor('#475569').fontSize(10).font('Helvetica')
-        .text(`Order Number: ${data.order_number}`, 50, 400)
-        .text(`Date Issued: ${date}`, 50, 418)
-        .text(`Prepared for: ${data.client_name}`, 50, 436);
+        .text(`${L.order_number}: ${data.order_number}`, 50, 400)
+        .text(`${L.date_issued}: ${date}`, 50, 418)
+        .text(`${L.prepared_for}: ${data.client_name}`, 50, 436);
 
-      // Cover footer
       doc
         .fillColor('#94a3b8').fontSize(8).font('Helvetica-Oblique')
         .text(
-          `CONFIDENTIAL — This report has been prepared exclusively for ${data.client_name} and is not transferable. ` +
-            'Information contained herein is based on publicly available data sources and analyst review as of the date of issue.',
+          `${L.confidential} ${data.client_name} ${L.not_transferable}`,
           50, 740, { width: 495, align: 'center' }
         );
 
       // ========== SECTION 1: EXECUTIVE SUMMARY ==========
       doc.addPage();
-      sectionTitle(doc, '1. Executive Summary');
+      sectionTitle(doc, L.s1);
 
       doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold')
-        .text(`Risk Score: ${score} / 100`, 50, doc.y);
+        .text(`${L.risk_score}: ${score} / 100`, 50, doc.y);
       doc.moveDown(0.3);
       const gaugeY = doc.y;
       doc.rect(50, gaugeY, 495, 8).fill('#e5e7eb');
@@ -109,16 +212,15 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       doc.y = gaugeY + 20;
 
       doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
-        .text(data.ai_risk_narrative || data.analyst_summary || 'No narrative generated yet.', 50, doc.y, {
+        .text(data.ai_risk_narrative || data.analyst_summary || L.no_narrative, 50, doc.y, {
           width: 495,
           align: 'justify',
         });
       doc.moveDown();
 
-      // Flags
       const flags = Array.isArray(data.analyst_flags) ? data.analyst_flags : [];
       if (flags.length > 0) {
-        doc.fillColor('#111827').fontSize(12).font('Helvetica-Bold').text('Risk Flags', 50, doc.y);
+        doc.fillColor('#111827').fontSize(12).font('Helvetica-Bold').text(L.risk_flags, 50, doc.y);
         doc.moveDown(0.3);
         for (const f of flags as any[]) {
           if (doc.y > 720) doc.addPage();
@@ -135,19 +237,19 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 2: COMPANY PROFILE ==========
       doc.addPage();
-      sectionTitle(doc, '2. Company Profile');
+      sectionTitle(doc, L.s2);
 
       const fields: Array<[string, string]> = [
-        ['Registered Name', c.name || '—'],
-        ['Registration Number', c.registration_number || '—'],
-        ['Legal Form', c.legal_form || '—'],
-        ['Status', (c.status || 'unknown').toUpperCase()],
-        ['Registration Date', formatDate(c.registration_date)],
-        ['Municipality', c.municipality || '—'],
-        ['Address', c.address || '—'],
-        ['Primary Activity', c.primary_activity_description || '—'],
-        ['Share Capital', c.share_capital_eur ? `€ ${Number(c.share_capital_eur).toLocaleString()}` : '—'],
-        ['Source URL', c.source_url || '—'],
+        [L.name, c.name || '—'],
+        [L.reg_num, c.registration_number || '—'],
+        [L.legal_form, c.legal_form || '—'],
+        [L.status, (c.status || 'unknown').toUpperCase()],
+        [L.reg_date, formatDate(c.registration_date)],
+        [L.municipality, c.municipality || '—'],
+        [L.address, c.address || '—'],
+        [L.activity, c.primary_activity_description || '—'],
+        [L.capital, c.share_capital_eur ? `€ ${Number(c.share_capital_eur).toLocaleString()}` : '—'],
+        [L.source_url, c.source_url || '—'],
       ];
 
       for (const [label, value] of fields) {
@@ -163,27 +265,20 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 3: OWNERSHIP ==========
       doc.addPage();
-      sectionTitle(doc, '3. Ownership Structure');
+      sectionTitle(doc, L.s3);
 
       if (persons.length === 0) {
         doc.fillColor('#6b7280').fontSize(10).font('Helvetica-Oblique')
-          .text('No ownership data found in public registry. This is flagged as a data gap.', 50, doc.y, { width: 495 });
+          .text(L.no_ownership, 50, doc.y, { width: 495 });
       } else {
-        // Header
-        tableHeader(doc, [
-          { label: 'Name', width: 220 },
-          { label: 'Role', width: 150 },
-          { label: 'Ownership %', width: 125 },
-        ]);
+        const ownCols = [
+          { label: L.col_name, width: 220 },
+          { label: L.col_role, width: 150 },
+          { label: L.col_ownership, width: 125 },
+        ];
+        tableHeader(doc, ownCols);
         for (const p of persons) {
-          if (doc.y > 720) {
-            doc.addPage();
-            tableHeader(doc, [
-              { label: 'Name', width: 220 },
-              { label: 'Role', width: 150 },
-              { label: 'Ownership %', width: 125 },
-            ]);
-          }
+          if (doc.y > 720) { doc.addPage(); tableHeader(doc, ownCols); }
           tableRow(doc, [
             { text: p.full_name || '—', width: 220 },
             { text: p.role || '—', width: 150 },
@@ -194,31 +289,24 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 4: PROCUREMENT ==========
       doc.addPage();
-      sectionTitle(doc, '4. Procurement History');
+      sectionTitle(doc, L.s4);
       doc.fillColor('#374151').fontSize(10).font('Helvetica')
-        .text(`Total contracts: ${proc.length}    |    Total value: € ${totalProc.toLocaleString()}`, 50, doc.y);
+        .text(`${L.total_contracts}: ${proc.length}    |    ${L.total_value}: € ${totalProc.toLocaleString()}`, 50, doc.y);
       doc.moveDown();
 
       if (proc.length === 0) {
         doc.fillColor('#6b7280').fontSize(10).font('Helvetica-Oblique')
-          .text('No government procurement contracts found in public records.', 50, doc.y);
+          .text(L.no_procurement, 50, doc.y);
       } else {
-        tableHeader(doc, [
-          { label: 'Date', width: 70 },
-          { label: 'Title', width: 200 },
-          { label: 'Authority', width: 145 },
-          { label: 'Value (EUR)', width: 80 },
-        ]);
+        const procCols = [
+          { label: L.col_date, width: 70 },
+          { label: L.col_title, width: 200 },
+          { label: L.col_authority, width: 145 },
+          { label: L.col_value, width: 80 },
+        ];
+        tableHeader(doc, procCols);
         for (const p of proc.slice(0, 50)) {
-          if (doc.y > 720) {
-            doc.addPage();
-            tableHeader(doc, [
-              { label: 'Date', width: 70 },
-              { label: 'Title', width: 200 },
-              { label: 'Authority', width: 145 },
-              { label: 'Value (EUR)', width: 80 },
-            ]);
-          }
+          if (doc.y > 720) { doc.addPage(); tableHeader(doc, procCols); }
           tableRow(doc, [
             { text: formatDate(p.award_date), width: 70 },
             { text: p.tender_title || '—', width: 200 },
@@ -230,11 +318,11 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 5: NEWS ==========
       doc.addPage();
-      sectionTitle(doc, '5. Media & News Screening');
+      sectionTitle(doc, L.s5);
 
       if (news.length === 0) {
         doc.fillColor('#6b7280').fontSize(10).font('Helvetica-Oblique')
-          .text('No significant media presence found.', 50, doc.y);
+          .text(L.no_media, 50, doc.y);
       } else {
         for (const n of news) {
           if (doc.y > 700) doc.addPage();
@@ -262,12 +350,12 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 6: ANALYST ASSESSMENT ==========
       doc.addPage();
-      sectionTitle(doc, '6. Analyst Assessment');
+      sectionTitle(doc, L.s6);
       doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
-        .text(data.analyst_summary || 'No analyst summary provided.', 50, doc.y, { width: 495, align: 'justify' });
+        .text(data.analyst_summary || L.no_analyst, 50, doc.y, { width: 495, align: 'justify' });
       doc.moveDown();
       if (data.analyst_recommendations) {
-        doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text('Recommendations', 50, doc.y);
+        doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text(L.recommendations, 50, doc.y);
         doc.moveDown(0.3);
         doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
           .text(data.analyst_recommendations, 50, doc.y, { width: 495, align: 'justify' });
@@ -275,7 +363,7 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
 
       // ========== SECTION 7: SOURCES ==========
       doc.addPage();
-      sectionTitle(doc, '7. Data Sources & Methodology');
+      sectionTitle(doc, L.s7);
       const sources = [
         'ARBK — Kosovo Business Registration Agency (https://arbk.rks-gov.net)',
         'e-Prokurimi — Kosovo Public Procurement (https://e-prokurimi.rks-gov.net)',
@@ -293,12 +381,7 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       }
       doc.moveDown();
       doc.fillColor('#6b7280').fontSize(8).font('Helvetica-Oblique')
-        .text(
-          `Report generated on ${date}. Data presented herein is sourced from publicly available registries and media outlets. ` +
-            'Recipients should independently verify any material fact before commercial action. ' +
-            'KosovaIntel does not warrant completeness of underlying government data.',
-          50, doc.y, { width: 495 }
-        );
+        .text(`${L.date_issued}: ${date}. ${L.footer_note}`, 50, doc.y, { width: 495 });
 
       // ========== Add per-page footers ==========
       const pageRange = doc.bufferedPageRange();
@@ -309,12 +392,12 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         (doc.page as any).margins.bottom = 0;
         doc.fillColor('#9ca3af').fontSize(7).font('Helvetica')
           .text(
-            `CONFIDENTIAL — Prepared exclusively for ${data.client_name} — ${date}`,
+            `${L.confidential_footer} ${data.client_name} — ${date}`,
             50, doc.page.height - 30,
             { align: 'left', width: 400 }
           )
           .text(
-            `Page ${i + 1} of ${pageRange.count}`,
+            `${L.page} ${i + 1} ${L.page_of} ${pageRange.count}`,
             doc.page.width - 110, doc.page.height - 30,
             { align: 'right', width: 60 }
           );
