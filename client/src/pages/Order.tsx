@@ -47,8 +47,16 @@ export default function Order() {
     return (
       <div className="max-w-2xl mx-auto py-20 px-6 text-center">
         <div className="text-5xl mb-6">✓</div>
-        <h1 className="text-3xl font-bold mb-4">Order #{orderNumber} received</h1>
-        <p className="text-slate-600">We'll contact you within 2 hours to confirm and send payment instructions.</p>
+        <h1 className="text-3xl font-bold mb-4">Order #{orderNumber} completed</h1>
+        <p className="text-slate-600 mb-2">
+          <strong>Demo Mode:</strong> Your report has been auto-generated and is ready to download.
+        </p>
+        <p className="text-sm text-slate-500 mb-6">
+          (In production, the order would be marked pending until payment is confirmed and an analyst completes the review.)
+        </p>
+        <a href="/dashboard" className="inline-block bg-amber-500 text-slate-900 font-bold px-6 py-2 rounded">
+          Go to Dashboard to Download →
+        </a>
       </div>
     );
   }

@@ -6,6 +6,8 @@ import SampleReport from './pages/SampleReport';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ClientDashboard from './pages/ClientDashboard';
+import Companies from './pages/Companies';
+import CompanyDetail from './pages/CompanyDetail';
 import AdminLogin from './pages/admin/AdminLogin';
 import OrderQueue from './pages/admin/OrderQueue';
 import OrderWorkspace from './pages/admin/OrderWorkspace';
@@ -22,6 +24,7 @@ function Header() {
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
         <Link to="/" className="text-xl font-bold tracking-wider">KOSOVAINTEL</Link>
         <nav className="flex gap-6 items-center text-sm">
+          <Link to="/companies" className="hover:text-amber-400">Companies</Link>
           <Link to="/order" className="hover:text-amber-400">Order Report</Link>
           <Link to="/sample-report" className="hover:text-amber-400">Sample</Link>
           {user ? (
@@ -53,6 +56,8 @@ export default function App() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/companies" element={<Companies />} />
+          <Route path="/companies/:id" element={<CompanyDetail />} />
           <Route path="/order" element={<Order />} />
           <Route path="/sample-report" element={<SampleReport />} />
           <Route path="/login" element={<Login />} />

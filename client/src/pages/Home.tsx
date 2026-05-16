@@ -24,9 +24,34 @@ export default function Home() {
             Professional due diligence reports on any Kosovo company in 48 hours, built from public records,
             procurement data, and media analysis.
           </p>
-          <Link to="/order" className="inline-block bg-amber-500 text-slate-900 px-8 py-3 rounded font-bold text-lg hover:bg-amber-400">
-            Order a Report
-          </Link>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Link to="/companies" className="inline-block bg-white text-slate-900 px-8 py-3 rounded font-bold text-lg">
+              Browse 45+ Companies
+            </Link>
+            <Link to="/order" className="inline-block bg-amber-500 text-slate-900 px-8 py-3 rounded font-bold text-lg hover:bg-amber-400">
+              Order a Report
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-amber-50 border-y border-amber-200 py-10 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-3">Why pay for this?</h2>
+          <div className="grid md:grid-cols-3 gap-6 text-sm text-left mt-6">
+            <div>
+              <div className="font-bold mb-1">⏱ Save analyst hours</div>
+              <p className="text-slate-700">Researching a single Kosovo company across ARBK, e-Prokurimi, news archives, and court records takes 6–10 hours of skilled analyst time. We've done it.</p>
+            </div>
+            <div>
+              <div className="font-bold mb-1">🔗 Verified at source</div>
+              <p className="text-slate-700">Every report links back to the official ARBK URL so the recipient can verify each fact at the government source.</p>
+            </div>
+            <div>
+              <div className="font-bold mb-1">🤖 AI risk analysis</div>
+              <p className="text-slate-700">Composite risk score (0–100) with executive narrative explaining flags, gaps, and recommendations.</p>
+            </div>
+          </div>
         </div>
       </section>
 
