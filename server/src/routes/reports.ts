@@ -22,9 +22,13 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
   const procurement = order.company_id ? (await query('SELECT * FROM procurement_records WHERE company_id = $1 ORDER BY award_date DESC', [order.company_id])).rows : [];
   const news = order.company_id ? (await query('SELECT * FROM news_mentions WHERE company_id = $1 ORDER BY published_at DESC NULLS LAST', [order.company_id])).rows : [];
 
-  // If no AI narrative yet, generate one (using mock if no API key)
+  // Always generate (re-generate) the assessment in the target language at PDF time
+  let assessment = null as any;
+  if (company) {
+    assessment = await generateRiskAssessment({ company, persons, procurement, news }, lang);
+  }
   if (!report?.ai_risk_narrative) {
-    const assessment = await generateRiskAssessment({ company, persons, procurement, news });
+    const a = assessment || await generateRiskAssessment({ company, persons, procurement, news }, lang);
     await query(
       `INSERT INTO reports (order_id, company_id, ai_risk_narrative, ai_risk_score,
         analyst_risk_rating, analyst_flags, analyst_summary, analyst_recommendations)
@@ -37,10 +41,10 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
          analyst_summary = COALESCE(reports.analyst_summary, EXCLUDED.analyst_summary),
          analyst_recommendations = COALESCE(reports.analyst_recommendations, EXCLUDED.analyst_recommendations),
          updated_at = NOW()`,
-      [orderId, order.company_id, assessment.executive_summary, assessment.risk_score,
-       assessment.risk_rating, JSON.stringify(assessment.risk_flags),
+      [orderId, order.company_id, a.executive_summary, a.risk_score,
+       a.risk_rating, JSON.stringify(a.risk_flags),
        `Independent analyst review of ${company?.name || 'subject entity'}. Findings catalogued in flags section. Risk rating reflects composite assessment of registry data, procurement history, and media screening.`,
-       assessment.recommendations]
+       a.recommendations]
     );
     report = (await query<any>('SELECT * FROM reports WHERE order_id = $1', [orderId])).rows[0];
   }
@@ -48,16 +52,22 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
   const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
   const outputPath = path.resolve(reportsPath, `${order.order_number}-${lang}.pdf`);
 
+  // For non-English PDFs, use the freshly computed assessment in that language
+  const narrativeForLang = (lang === 'sq' && assessment) ? assessment.executive_summary : report?.ai_risk_narrative;
+  const flagsForLang = (lang === 'sq' && assessment) ? assessment.risk_flags : report?.analyst_flags;
+  const recForLang = (lang === 'sq' && assessment) ? assessment.recommendations : report?.analyst_recommendations;
+
   await generatePDF({
     order_number: order.order_number,
-    client_name: order.client_company || order.client_name || 'Confidential Client',
+    client_name: order.client_company || order.client_name || (lang === 'sq' ? 'Klient Konfidencial' : 'Confidential Client'),
     company, persons, procurement, news,
-    ai_risk_narrative: report?.ai_risk_narrative,
-    ai_risk_score: report?.ai_risk_score,
+    ai_risk_narrative: narrativeForLang,
+    ai_risk_score: report?.ai_risk_score ?? assessment?.risk_score,
     analyst_summary: report?.analyst_summary,
-    analyst_risk_rating: report?.analyst_risk_rating,
-    analyst_flags: report?.analyst_flags,
-    analyst_recommendations: report?.analyst_recommendations,
+    analyst_risk_rating: report?.analyst_risk_rating ?? assessment?.risk_rating,
+    analyst_flags: flagsForLang,
+    data_gaps: assessment?.data_gaps,
+    analyst_recommendations: recForLang,
     lang,
     tier: order.report_type as 'basic' | 'standard' | 'comprehensive',
   }, outputPath);
@@ -95,27 +105,28 @@ router.get('/samples/:tier', async (req, res) => {
       [company.id]
     )).rows;
 
-    // Generate AI assessment for the comprehensive tier
     const { generateRiskAssessment } = await import('../services/ai.service');
-    const assessment = await generateRiskAssessment({ company, persons, procurement, news });
+    const assessment = await generateRiskAssessment({ company, persons, procurement, news }, lang);
 
     const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
     const outputPath = path.resolve(reportsPath, `SAMPLE-${tier}-${lang}.pdf`);
 
-    // Always regenerate samples (cheap, and lets us tweak tier behavior easily)
+    const analystSummary = lang === 'sq'
+      ? `Rishikim i pavarur i analistit për ${company.name}. Kompania është një nga grupet më të mëdha dhe më të konsoliduara afariste në Kosovë, me operacione të diversifikuara në shpërndarje karburanti, tregti me pakicë dhe patundshmëri. Histori e dokumentuar prokurimi dhe pronësi transparente.`
+      : `Independent analyst review of ${company.name}. The company is one of the largest and most established business groups in Kosovo, with diversified operations across fuel distribution, retail, and real estate. Documented procurement track record and transparent ownership.`;
+
     await generatePDF({
       order_number: `SAMPLE-${tier.toUpperCase()}`,
-      client_name: 'Demo Recipient',
+      client_name: lang === 'sq' ? 'Marrës Demonstrimi' : 'Demo Recipient',
       company, persons, procurement, news,
       ai_risk_narrative: assessment.executive_summary,
       ai_risk_score: assessment.risk_score,
       analyst_risk_rating: assessment.risk_rating,
       analyst_flags: assessment.risk_flags,
-      analyst_summary: `Independent analyst review of ${company.name}. The company is one of the largest and most established business groups in Kosovo, with diversified operations across fuel distribution, retail, and real estate. Documented procurement track record and transparent ownership.`,
+      data_gaps: assessment.data_gaps,
+      analyst_summary: analystSummary,
       analyst_recommendations: assessment.recommendations,
-      lang,
-      tier,
-      is_sample: true,
+      lang, tier, is_sample: true,
     }, outputPath);
 
     res.download(outputPath, `KosovaIntel-Sample-${tier}-${lang}.pdf`);
