@@ -30,8 +30,7 @@ export function startCronJobs() {
       } catch (err) {
         console.error('[cron] Nightly sync errored:', err);
       }
-    },
-    { timezone: 'Europe/Tirana' }
+    }
   );
 
   console.log('[cron] Scheduled jobs registered');
