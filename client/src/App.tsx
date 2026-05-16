@@ -6,7 +6,7 @@ import SampleReport from './pages/SampleReport';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ClientDashboard from './pages/ClientDashboard';
-import Companies from './pages/Companies';
+import CompaniesBrowse from './pages/Companies';
 import CompanyDetail from './pages/CompanyDetail';
 import AdminLogin from './pages/admin/AdminLogin';
 import OrderQueue from './pages/admin/OrderQueue';
@@ -56,7 +56,7 @@ export default function App() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/companies" element={<Companies />} />
+          <Route path="/companies" element={<CompaniesBrowse />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />
           <Route path="/order" element={<Order />} />
           <Route path="/sample-report" element={<SampleReport />} />
