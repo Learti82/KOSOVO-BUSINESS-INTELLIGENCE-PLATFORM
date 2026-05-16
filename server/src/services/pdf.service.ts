@@ -17,6 +17,8 @@ export interface ReportData {
   analyst_flags?: any[];
   analyst_recommendations?: string;
   lang?: 'en' | 'sq';
+  tier?: 'basic' | 'standard' | 'comprehensive';
+  is_sample?: boolean;
 }
 
 const LABELS = {
@@ -159,6 +161,13 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       const ratingColor = RATING_COLORS[rating] || '#6b7280';
       const totalProc = proc.reduce((sum: number, p: any) => sum + (parseFloat(p.contract_value_eur) || 0), 0);
 
+      const tier = data.tier || 'comprehensive';
+      const includeProcurement = tier === 'standard' || tier === 'comprehensive';
+      const includeNews = tier === 'standard' || tier === 'comprehensive';
+      const includeAnalyst = tier === 'standard' || tier === 'comprehensive';
+      const includeAINarrative = tier === 'comprehensive';
+      const includeFlags = tier === 'comprehensive';
+
       // ========== COVER PAGE ==========
       doc.rect(0, 0, doc.page.width, 220).fill('#0f172a');
       doc
@@ -190,7 +199,18 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         .fillColor('#475569').fontSize(10).font('Helvetica')
         .text(`${L.order_number}: ${data.order_number}`, 50, 400)
         .text(`${L.date_issued}: ${date}`, 50, 418)
-        .text(`${L.prepared_for}: ${data.client_name}`, 50, 436);
+        .text(`${L.prepared_for}: ${data.client_name}`, 50, 436)
+        .text(`Report Tier: ${tier.toUpperCase()}`, 50, 454);
+
+      // SAMPLE watermark
+      if (data.is_sample) {
+        doc.save();
+        doc.rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.fillColor('#fee2e2').opacity(0.4).fontSize(110).font('Helvetica-Bold')
+          .text('SAMPLE', 0, doc.page.height / 2 - 70, { width: doc.page.width, align: 'center' });
+        doc.opacity(1);
+        doc.restore();
+      }
 
       doc
         .fillColor('#94a3b8').fontSize(8).font('Helvetica-Oblique')
@@ -211,14 +231,17 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
       doc.rect(50, gaugeY, Math.round(495 * score / 100), 8).fill(ratingColor);
       doc.y = gaugeY + 20;
 
+      const summaryText = includeAINarrative
+        ? (data.ai_risk_narrative || data.analyst_summary || L.no_narrative)
+        : (tier === 'standard'
+            ? (data.analyst_summary || data.ai_risk_narrative?.split('\n\n').slice(0, 2).join('\n\n') || L.no_narrative)
+            : (data.ai_risk_narrative?.split('\n\n')[0] || L.no_narrative));
+
       doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
-        .text(data.ai_risk_narrative || data.analyst_summary || L.no_narrative, 50, doc.y, {
-          width: 495,
-          align: 'justify',
-        });
+        .text(summaryText, 50, doc.y, { width: 495, align: 'justify' });
       doc.moveDown();
 
-      const flags = Array.isArray(data.analyst_flags) ? data.analyst_flags : [];
+      const flags = includeFlags && Array.isArray(data.analyst_flags) ? data.analyst_flags : [];
       if (flags.length > 0) {
         doc.fillColor('#111827').fontSize(12).font('Helvetica-Bold').text(L.risk_flags, 50, doc.y);
         doc.moveDown(0.3);
@@ -287,7 +310,8 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         }
       }
 
-      // ========== SECTION 4: PROCUREMENT ==========
+      // ========== SECTION 4: PROCUREMENT (Standard + Comprehensive only) ==========
+      if (includeProcurement) {
       doc.addPage();
       sectionTitle(doc, L.s4);
       doc.fillColor('#374151').fontSize(10).font('Helvetica')
@@ -316,7 +340,10 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         }
       }
 
-      // ========== SECTION 5: NEWS ==========
+      } // end includeProcurement
+
+      // ========== SECTION 5: NEWS (Standard + Comprehensive only) ==========
+      if (includeNews) {
       doc.addPage();
       sectionTitle(doc, L.s5);
 
@@ -348,7 +375,10 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         }
       }
 
-      // ========== SECTION 6: ANALYST ASSESSMENT ==========
+      } // end includeNews
+
+      // ========== SECTION 6: ANALYST ASSESSMENT (Standard + Comprehensive) ==========
+      if (includeAnalyst) {
       doc.addPage();
       sectionTitle(doc, L.s6);
       doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
@@ -360,6 +390,7 @@ export async function generatePDF(data: ReportData, outputPath: string): Promise
         doc.fillColor('#1f2937').fontSize(10).font('Helvetica')
           .text(data.analyst_recommendations, 50, doc.y, { width: 495, align: 'justify' });
       }
+      } // end includeAnalyst
 
       // ========== SECTION 7: SOURCES ==========
       doc.addPage();

@@ -59,6 +59,7 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
     analyst_flags: report?.analyst_flags,
     analyst_recommendations: report?.analyst_recommendations,
     lang,
+    tier: order.report_type as 'basic' | 'standard' | 'comprehensive',
   }, outputPath);
 
   // Only update pdf_path with the default English version (for backward compat)
@@ -69,6 +70,60 @@ async function buildAndSavePDF(orderId: number, lang: 'en' | 'sq' = 'en'): Promi
 }
 
 export { buildAndSavePDF };
+
+// PUBLIC SAMPLE — anyone can download a sample report for Kastrati Group (or any seeded company)
+router.get('/samples/:tier', async (req, res) => {
+  try {
+    const tier = (req.params.tier === 'basic' || req.params.tier === 'standard' || req.params.tier === 'comprehensive')
+      ? req.params.tier as 'basic' | 'standard' | 'comprehensive'
+      : 'standard';
+    const lang: 'en' | 'sq' = req.query.lang === 'sq' ? 'sq' : 'en';
+
+    // Use Kastrati Group as the sample subject
+    const company = (await query<any>(
+      `SELECT * FROM companies WHERE registration_number = '70234001' LIMIT 1`
+    )).rows[0];
+    if (!company) return res.status(404).json({ error: 'Sample company not seeded' });
+
+    const persons = (await query('SELECT * FROM company_persons WHERE company_id = $1', [company.id])).rows;
+    const procurement = (await query(
+      'SELECT * FROM procurement_records WHERE company_id = $1 ORDER BY award_date DESC',
+      [company.id]
+    )).rows;
+    const news = (await query(
+      'SELECT * FROM news_mentions WHERE company_id = $1 ORDER BY published_at DESC NULLS LAST',
+      [company.id]
+    )).rows;
+
+    // Generate AI assessment for the comprehensive tier
+    const { generateRiskAssessment } = await import('../services/ai.service');
+    const assessment = await generateRiskAssessment({ company, persons, procurement, news });
+
+    const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
+    const outputPath = path.resolve(reportsPath, `SAMPLE-${tier}-${lang}.pdf`);
+
+    // Always regenerate samples (cheap, and lets us tweak tier behavior easily)
+    await generatePDF({
+      order_number: `SAMPLE-${tier.toUpperCase()}`,
+      client_name: 'Demo Recipient',
+      company, persons, procurement, news,
+      ai_risk_narrative: assessment.executive_summary,
+      ai_risk_score: assessment.risk_score,
+      analyst_risk_rating: assessment.risk_rating,
+      analyst_flags: assessment.risk_flags,
+      analyst_summary: `Independent analyst review of ${company.name}. The company is one of the largest and most established business groups in Kosovo, with diversified operations across fuel distribution, retail, and real estate. Documented procurement track record and transparent ownership.`,
+      analyst_recommendations: assessment.recommendations,
+      lang,
+      tier,
+      is_sample: true,
+    }, outputPath);
+
+    res.download(outputPath, `KosovaIntel-Sample-${tier}-${lang}.pdf`);
+  } catch (err: any) {
+    console.error('Sample PDF failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/client/orders/:id/report', authRequired, requireRole('client'), async (req: AuthRequest, res) => {
   try {
