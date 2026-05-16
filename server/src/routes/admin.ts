@@ -1,10 +1,8 @@
 import { Router } from 'express';
-import path from 'path';
 import { query } from '../db/pool';
 import { authRequired, requireRole, AuthRequest } from '../middleware/auth.middleware';
 import { enrichCompany } from '../services/scrapers/enrich.service';
 import { generateRiskAssessment } from '../services/ai.service';
-import { generatePDF } from '../services/pdf.service';
 import { sendEmail, reportReadyEmail } from '../services/email.service';
 
 const router = Router();
@@ -166,32 +164,11 @@ router.post('/reports/:order_id/generate-ai', async (req, res) => {
 
 router.post('/reports/:order_id/generate-pdf', async (req, res) => {
   try {
-    const orderId = req.params.order_id;
-    const order = (await query<any>(
-      `SELECT o.*, u.full_name AS client_name, u.company_name AS client_company
-       FROM report_orders o LEFT JOIN users u ON o.client_id = u.id WHERE o.id = $1`, [orderId]
-    )).rows[0];
-    const report = (await query<any>('SELECT * FROM reports WHERE order_id = $1', [orderId])).rows[0];
-    const company = order?.company_id ? (await query('SELECT * FROM companies WHERE id = $1', [order.company_id])).rows[0] : null;
-    const persons = order?.company_id ? (await query('SELECT * FROM company_persons WHERE company_id = $1', [order.company_id])).rows : [];
-    const procurement = order?.company_id ? (await query('SELECT * FROM procurement_records WHERE company_id = $1', [order.company_id])).rows : [];
-    const news = order?.company_id ? (await query('SELECT * FROM news_mentions WHERE company_id = $1', [order.company_id])).rows : [];
-    const reportsPath = process.env.REPORTS_PATH || './uploads/reports';
-    const outputPath = path.resolve(reportsPath, `${order.order_number}.pdf`);
-    await generatePDF({
-      order_number: order.order_number,
-      client_name: order.client_company || order.client_name || 'Confidential Client',
-      company, persons, procurement, news,
-      ai_risk_narrative: report?.ai_risk_narrative,
-      ai_risk_score: report?.ai_risk_score,
-      analyst_summary: report?.analyst_summary,
-      analyst_risk_rating: report?.analyst_risk_rating,
-      analyst_flags: report?.analyst_flags,
-      analyst_recommendations: report?.analyst_recommendations,
-    }, outputPath);
-    await query('UPDATE reports SET pdf_path = $1 WHERE order_id = $2', [outputPath, orderId]);
-    res.json({ pdf_path: outputPath });
+    const { buildAndSavePDF } = await import('./reports');
+    const pdfPath = await buildAndSavePDF(parseInt(req.params.order_id));
+    res.json({ pdf_path: pdfPath });
   } catch (err: any) {
+    console.error('PDF generation failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
