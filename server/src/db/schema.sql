@@ -155,3 +155,33 @@ CREATE TABLE IF NOT EXISTS scrape_jobs (
   error_message TEXT,
   triggered_by VARCHAR(50)
 );
+
+CREATE TABLE IF NOT EXISTS risk_score_history (
+  id SERIAL PRIMARY KEY,
+  company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+  risk_score INTEGER,
+  risk_rating VARCHAR(20),
+  flags_count INTEGER DEFAULT 0,
+  source VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_history_company ON risk_score_history(company_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS uploaded_documents (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER REFERENCES report_orders(id) ON DELETE CASCADE,
+  client_id INTEGER REFERENCES users(id),
+  original_name VARCHAR(255),
+  stored_path TEXT,
+  mime_type VARCHAR(100),
+  size_bytes INTEGER,
+  uploaded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS bulk_batches (
+  id SERIAL PRIMARY KEY,
+  client_id INTEGER REFERENCES users(id),
+  total_orders INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

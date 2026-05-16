@@ -23,13 +23,32 @@ router.post('/request', async (req, res) => {
     const dueAt = new Date(Date.now() + (URGENCY_HOURS[urgency as keyof typeof URGENCY_HOURS] || 48) * 3600 * 1000);
     const seqResult = await query<{ count: string }>('SELECT COUNT(*)::text AS count FROM report_orders');
     const orderNumber = generateOrderNumber(parseInt(seqResult.rows[0].count) + 1);
+
+    // DEMO MODE: auto-pay all orders and auto-complete them with AI report
+    // (Real mode would set paid=false, status='pending' and wait for analyst)
+    const demoMode = process.env.DEMO_MODE !== 'false';
+
     const result = await query<any>(
       `INSERT INTO report_orders
-       (order_number, client_id, company_id, target_company_name, report_type, urgency, price_eur, due_at, client_notes, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending') RETURNING *`,
-      [orderNumber, client_id || null, company_id || null, target_company_name, report_type, urgency, price, dueAt, client_notes]
+       (order_number, client_id, company_id, target_company_name, report_type, urgency, price_eur, due_at, client_notes, status, paid, paid_at, completed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [orderNumber, client_id || null, company_id || null, target_company_name, report_type, urgency, price, dueAt, client_notes,
+       demoMode ? 'completed' : 'pending',
+       demoMode,
+       demoMode ? new Date() : null,
+       demoMode ? new Date() : null]
     );
     const order = result.rows[0];
+
+    // In demo mode, auto-generate the report
+    if (demoMode && company_id) {
+      try {
+        const { buildAndSavePDF } = await import('./reports');
+        await buildAndSavePDF(order.id);
+      } catch (err) {
+        console.error('Auto-PDF generation failed:', err);
+      }
+    }
     // best-effort email
     if (client_id) {
       try {
